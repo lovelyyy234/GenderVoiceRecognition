@@ -1,0 +1,650 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Gender Voice Recognition V3</title>
+<style>
+/* ── Reset & Base ─────────────────────────────────────── */
+*{margin:0;padding:0;box-sizing:border-box;}
+:root{
+  --bg:#0d0d1a; --card:#14142a; --panel:#1a1a2e;
+  --accent:#00d4ff; --accent2:#7c3aed; --green:#059669;
+  --pink:#ff69b4; --blue:#4da6ff; --yellow:#fbbf24;
+  --red:#ef4444; --white:#f0f0f0; --gray:#888;
+  --border:#2a2a4a;
+}
+body{background:var(--bg);color:var(--white);font-family:'Segoe UI',Arial,sans-serif;min-height:100vh;}
+
+/* ── Layout ───────────────────────────────────────────── */
+.topbar{background:#0a0a18;padding:14px 24px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--border);}
+.topbar h1{font-size:1.25rem;color:var(--accent);letter-spacing:.5px;}
+.topbar .badge{background:var(--accent2);color:#fff;padding:3px 10px;border-radius:20px;font-size:.75rem;}
+
+.container{max-width:1300px;margin:0 auto;padding:20px 16px;}
+.grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:16px;}
+@media(max-width:900px){.grid3,.grid2{grid-template-columns:1fr;}}
+
+/* ── Cards ────────────────────────────────────────────── */
+.card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:20px;}
+.card-title{color:var(--accent);font-size:.85rem;font-weight:700;letter-spacing:1px;text-transform:uppercase;margin-bottom:14px;display:flex;align-items:center;gap:8px;}
+
+/* ── Upload Zone ──────────────────────────────────────── */
+.upload-zone{border:2px dashed var(--border);border-radius:10px;padding:36px 20px;text-align:center;cursor:pointer;transition:.2s;position:relative;}
+.upload-zone:hover,.upload-zone.drag{border-color:var(--accent);background:rgba(0,212,255,.05);}
+.upload-zone input{position:absolute;inset:0;opacity:0;cursor:pointer;}
+.upload-icon{font-size:2.5rem;margin-bottom:8px;}
+.upload-zone p{color:var(--gray);font-size:.9rem;}
+.upload-zone .fname{color:var(--accent);margin-top:6px;font-weight:600;font-size:.95rem;}
+
+/* ── Model Selector ───────────────────────────────────── */
+.model-tabs{display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap;}
+.model-tab{padding:7px 16px;border-radius:20px;border:1px solid var(--border);background:transparent;color:var(--gray);cursor:pointer;font-size:.85rem;transition:.2s;}
+.model-tab:hover{border-color:var(--accent);color:var(--accent);}
+.model-tab.active{background:var(--accent);color:#000;border-color:var(--accent);font-weight:700;}
+.model-tab.disabled{opacity:.4;cursor:not-allowed;}
+
+/* ── Buttons ──────────────────────────────────────────── */
+.btn{padding:10px 22px;border-radius:8px;border:none;cursor:pointer;font-size:.95rem;font-weight:700;transition:.2s;display:inline-flex;align-items:center;gap:8px;}
+.btn-primary{background:var(--accent);color:#000;}
+.btn-primary:hover{background:#00b8d9;}
+.btn-danger{background:var(--red);color:#fff;}
+.btn-success{background:var(--green);color:#fff;}
+.btn-purple{background:var(--accent2);color:#fff;}
+.btn:disabled{opacity:.5;cursor:not-allowed;}
+.btn-full{width:100%;justify-content:center;padding:13px;}
+
+/* ── Results ──────────────────────────────────────────── */
+.result-main{text-align:center;padding:20px 0;}
+.result-gender{font-size:3rem;font-weight:900;letter-spacing:2px;transition:.3s;}
+.result-gender.female{color:var(--pink);}
+.result-gender.male{color:var(--blue);}
+.result-conf{color:var(--yellow);font-size:1.1rem;margin-top:6px;}
+.result-age{color:#a78bfa;font-size:.95rem;margin-top:4px;}
+.result-model{color:var(--gray);font-size:.8rem;margin-top:4px;}
+
+/* ── Emotion ──────────────────────────────────────────── */
+.emotion-display{display:flex;align-items:center;gap:12px;margin-bottom:12px;}
+.emotion-emoji{font-size:2.5rem;}
+.emotion-label{font-size:1.4rem;font-weight:700;}
+.emotion-conf{color:var(--yellow);font-size:.9rem;}
+.emotion-bars{display:flex;flex-direction:column;gap:6px;}
+.emo-bar-row{display:flex;align-items:center;gap:8px;font-size:.8rem;}
+.emo-bar-row span:first-child{width:75px;color:var(--gray);}
+.emo-bar-bg{flex:1;height:8px;background:#222;border-radius:4px;overflow:hidden;}
+.emo-bar-fill{height:100%;background:linear-gradient(90deg,var(--accent2),var(--accent));border-radius:4px;transition:.5s;}
+.emo-pct{width:38px;text-align:right;color:var(--white);}
+
+/* ── Speaker ──────────────────────────────────────────── */
+.speaker-result{background:var(--panel);border-radius:8px;padding:14px;margin-bottom:12px;}
+.speaker-name{font-size:1.1rem;font-weight:700;color:var(--accent);}
+.speaker-conf{color:var(--yellow);font-size:.9rem;}
+.score-list{margin-top:8px;display:flex;flex-direction:column;gap:4px;}
+.score-item{display:flex;justify-content:space-between;font-size:.82rem;color:var(--gray);}
+
+/* ── Register Speaker ─────────────────────────────────── */
+.register-form{display:flex;flex-direction:column;gap:12px;}
+input[type=text]{background:var(--panel);border:1px solid var(--border);border-radius:8px;padding:10px 14px;color:var(--white);font-size:.95rem;outline:none;width:100%;}
+input[type=text]:focus{border-color:var(--accent);}
+.mini-upload{border:1px dashed var(--border);border-radius:8px;padding:14px;text-align:center;cursor:pointer;position:relative;font-size:.85rem;color:var(--gray);}
+.mini-upload input{position:absolute;inset:0;opacity:0;cursor:pointer;}
+.mini-upload:hover{border-color:var(--accent2);}
+
+/* ── History Table ────────────────────────────────────── */
+.hist-table{width:100%;border-collapse:collapse;font-size:.85rem;}
+.hist-table th{color:var(--accent);padding:8px 10px;text-align:left;border-bottom:1px solid var(--border);font-size:.78rem;text-transform:uppercase;}
+.hist-table td{padding:8px 10px;border-bottom:1px solid #1a1a2e;color:var(--gray);}
+.hist-table tr:hover td{background:var(--panel);}
+.badge-m{color:var(--blue);font-weight:700;}
+.badge-f{color:var(--pink);font-weight:700;}
+
+/* ── Model Stats ──────────────────────────────────────── */
+.model-stat-row{display:flex;align-items:center;gap:10px;margin-bottom:10px;}
+.model-stat-name{width:170px;font-size:.85rem;color:var(--white);}
+.stat-bar-bg{flex:1;height:10px;background:#222;border-radius:5px;overflow:hidden;}
+.stat-bar-fill{height:100%;border-radius:5px;background:linear-gradient(90deg,#2563eb,var(--accent));transition:.8s;}
+.stat-bar-fill.best{background:linear-gradient(90deg,var(--accent2),var(--accent));}
+.stat-acc{width:55px;text-align:right;font-size:.85rem;color:var(--yellow);}
+
+/* ── Spinner ──────────────────────────────────────────── */
+.spinner{display:none;width:36px;height:36px;border:4px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin .7s linear infinite;margin:12px auto;}
+@keyframes spin{to{transform:rotate(360deg);}}
+
+/* ── Alert ────────────────────────────────────────────── */
+.alert{padding:10px 14px;border-radius:8px;margin-bottom:12px;font-size:.9rem;display:none;}
+.alert-err{background:rgba(239,68,68,.15);border:1px solid var(--red);color:#fca5a5;}
+.alert-ok{background:rgba(5,150,105,.15);border:1px solid var(--green);color:#6ee7b7;}
+
+/* ── Speakers List ────────────────────────────────────── */
+.spk-item{display:flex;justify-content:space-between;align-items:center;padding:10px 12px;background:var(--panel);border-radius:8px;margin-bottom:8px;}
+.spk-info{font-size:.9rem;}
+.spk-name{font-weight:700;color:var(--white);}
+.spk-meta{color:var(--gray);font-size:.78rem;}
+.btn-del{background:rgba(239,68,68,.2);border:1px solid var(--red);color:#fca5a5;padding:4px 10px;border-radius:6px;cursor:pointer;font-size:.8rem;}
+
+/* ── Tabs ─────────────────────────────────────────────── */
+.tab-nav{display:flex;border-bottom:1px solid var(--border);margin-bottom:20px;gap:4px;}
+.tab-btn{padding:10px 20px;background:transparent;border:none;color:var(--gray);cursor:pointer;font-size:.9rem;border-bottom:2px solid transparent;transition:.2s;}
+.tab-btn.active{color:var(--accent);border-bottom-color:var(--accent);}
+.tab-panel{display:none;}
+.tab-panel.active{display:block;}
+
+/* ── Misc ─────────────────────────────────────────────── */
+.divider{height:1px;background:var(--border);margin:16px 0;}
+.text-gray{color:var(--gray);font-size:.85rem;}
+.mt8{margin-top:8px;}
+.gap10{display:flex;gap:10px;}
+</style>
+</head>
+<body>
+
+<!-- Top Bar -->
+<div class="topbar">
+  <h1>🎙️ Gender Voice Recognition System <span style="color:var(--gray);font-size:.85rem">V3</span></h1>
+  <div style="display:flex;gap:10px;align-items:center;">
+    {% if dl_available %}
+    <span class="badge">TensorFlow ✓</span>
+    {% endif %}
+    <span class="badge" style="background:var(--green);">ML 96.78%</span>
+  </div>
+</div>
+
+<div class="container">
+
+  <!-- Tab Navigation -->
+  <div class="tab-nav">
+    <button class="tab-btn active" onclick="switchTab('predict')">🔍 Predict</button>
+    <button class="tab-btn" onclick="switchTab('speakers')">👤 Speakers</button>
+    <button class="tab-btn" onclick="switchTab('history')">📋 History</button>
+    <button class="tab-btn" onclick="switchTab('models')">📊 Models</button>
+  </div>
+
+  <!-- ─── PREDICT TAB ─────────────────────────────────── -->
+  <div id="tab-predict" class="tab-panel active">
+    <div class="grid2" style="align-items:start;">
+
+      <!-- Left: Upload + Controls -->
+      <div style="display:flex;flex-direction:column;gap:16px;">
+
+        <!-- Upload -->
+        <div class="card">
+          <div class="card-title">📂 Upload Audio File</div>
+          <div class="upload-zone" id="dropZone">
+            <input type="file" id="audioFile" accept=".wav,.mp3,.ogg,.flac,.m4a">
+            <div class="upload-icon">🎵</div>
+            <p>Drag & drop or click to upload</p>
+            <p style="font-size:.78rem;margin-top:4px;">WAV · MP3 · OGG · FLAC · M4A</p>
+            <div class="fname" id="fileNameDisplay"></div>
+          </div>
+        </div>
+
+        <!-- Model Selection -->
+        <div class="card">
+          <div class="card-title">🤖 Select Model</div>
+          <div class="model-tabs">
+            <button class="model-tab active" data-model="ml" onclick="selectModel(this,'ml')">
+              ML (SVM/RF)
+            </button>
+            <button class="model-tab {% if not cnn_loaded %}disabled{% endif %}"
+                    data-model="cnn" onclick="selectModel(this,'cnn')">
+              CNN {% if not cnn_loaded %}⚠️{% endif %}
+            </button>
+            <button class="model-tab {% if not lstm_loaded %}disabled{% endif %}"
+                    data-model="lstm" onclick="selectModel(this,'lstm')">
+              BiLSTM {% if not lstm_loaded %}⚠️{% endif %}
+            </button>
+          </div>
+          {% if not cnn_loaded or not lstm_loaded %}
+          <p class="text-gray">⚠️ CNN/LSTM not trained yet. Run: <code style="color:var(--accent)">python train_deep.py</code></p>
+          {% endif %}
+        </div>
+
+        <!-- Analyse Button -->
+        <button class="btn btn-primary btn-full" id="analyseBtn" onclick="analyseAudio()" disabled>
+          🔍 Analyse Voice
+        </button>
+
+        <div id="alertBox" class="alert alert-err"></div>
+        <div class="spinner" id="spinner"></div>
+      </div>
+
+      <!-- Right: Results -->
+      <div style="display:flex;flex-direction:column;gap:16px;">
+
+        <!-- Gender Result -->
+        <div class="card">
+          <div class="card-title">🏁 Gender Result</div>
+          <div class="result-main" id="genderResult">
+            <div class="result-gender" id="genderLabel">---</div>
+            <div class="result-conf" id="genderConf">Upload a file to begin</div>
+            <div class="result-age" id="genderAge"></div>
+            <div class="result-model" id="modelUsed"></div>
+          </div>
+        </div>
+
+        <!-- Emotion Result -->
+        <div class="card">
+          <div class="card-title">😊 Emotion Detection</div>
+          <div id="emotionResult">
+            <div class="emotion-display">
+              <div class="emotion-emoji" id="emojiDisplay">🎵</div>
+              <div>
+                <div class="emotion-label" id="emotionLabel">---</div>
+                <div class="emotion-conf" id="emotionConf">Waiting...</div>
+              </div>
+            </div>
+            <div class="emotion-bars" id="emotionBars"></div>
+          </div>
+        </div>
+
+        <!-- Speaker Result -->
+        <div class="card">
+          <div class="card-title">👤 Speaker Identification</div>
+          <div id="speakerResult">
+            <div class="speaker-result">
+              <div class="speaker-name" id="speakerName">---</div>
+              <div class="speaker-conf" id="speakerConf">Register speakers in the Speakers tab</div>
+            </div>
+            <div class="score-list" id="speakerScores"></div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <!-- ─── SPEAKERS TAB ────────────────────────────────── -->
+  <div id="tab-speakers" class="tab-panel">
+    <div class="grid2" style="align-items:start;">
+
+      <!-- Register -->
+      <div class="card">
+        <div class="card-title">➕ Register New Speaker</div>
+        <div class="register-form">
+          <input type="text" id="spkName" placeholder="Speaker name (e.g. John)">
+          <div class="mini-upload" id="spkUploadZone">
+            <input type="file" id="spkFiles" accept=".wav,.mp3,.ogg,.flac" multiple>
+            📁 Upload 1–5 voice samples (WAV/MP3)
+            <div id="spkFileNames" style="color:var(--accent);margin-top:6px;font-size:.83rem;"></div>
+          </div>
+          <p class="text-gray">More samples = better identification accuracy</p>
+          <button class="btn btn-purple btn-full" onclick="registerSpeaker()">
+            💾 Register Speaker
+          </button>
+          <div id="regAlert" class="alert"></div>
+        </div>
+      </div>
+
+      <!-- Registered Speakers List -->
+      <div class="card">
+        <div class="card-title">👥 Registered Speakers</div>
+        <div id="speakersList">
+          <p class="text-gray">Loading...</p>
+        </div>
+        <button class="btn btn-primary mt8" onclick="loadSpeakers()" style="font-size:.83rem;padding:7px 14px;">
+          🔄 Refresh
+        </button>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ─── HISTORY TAB ──────────────────────────────────── -->
+  <div id="tab-history" class="tab-panel">
+    <div class="card">
+      <div class="card-title" style="justify-content:space-between;">
+        📋 Prediction History
+        <div style="display:flex;gap:8px;">
+          <button class="btn btn-danger" style="font-size:.8rem;padding:5px 12px;" onclick="clearHistory()">🗑️ Clear</button>
+          <button class="btn btn-success" style="font-size:.8rem;padding:5px 12px;" onclick="exportCSV()">💾 Export CSV</button>
+        </div>
+      </div>
+      <div style="overflow-x:auto;">
+        <table class="hist-table">
+          <thead>
+            <tr>
+              <th>Time</th><th>File</th><th>Gender</th>
+              <th>Confidence</th><th>Emotion</th><th>Speaker</th><th>Model</th>
+            </tr>
+          </thead>
+          <tbody id="historyBody">
+            <tr><td colspan="7" style="text-align:center;color:var(--gray);padding:20px;">No predictions yet</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- ─── MODELS TAB ───────────────────────────────────── -->
+  <div id="tab-models" class="tab-panel">
+    <div class="grid2" style="align-items:start;">
+
+      <div class="card">
+        <div class="card-title">📊 ML Model Accuracy (5-fold CV)</div>
+        <div id="modelStats">
+          {% for m in ml_stats %}
+          <div class="model-stat-row">
+            <span class="model-stat-name">
+              {% if m.best %}⭐ {% endif %}{{ m.name }}
+            </span>
+            <div class="stat-bar-bg">
+              <div class="stat-bar-fill {% if m.best %}best{% endif %}"
+                   style="width:{{ m.accuracy - 80 }}%"></div>
+            </div>
+            <span class="stat-acc">{{ m.accuracy }}%</span>
+          </div>
+          {% endfor %}
+        </div>
+        <div class="divider"></div>
+        <p class="text-gray">Best model: <strong style="color:var(--accent)">{{ best_model }}</strong></p>
+      </div>
+
+      <div class="card">
+        <div class="card-title">🧠 Deep Learning Models</div>
+
+        <div style="display:flex;flex-direction:column;gap:14px;">
+          <div style="background:var(--panel);border-radius:8px;padding:14px;">
+            <div style="font-weight:700;margin-bottom:4px;">
+              CNN (Mel Spectrogram)
+              <span style="float:right;color:{% if cnn_loaded %}var(--green){% else %}var(--red){% endif %}">
+                {% if cnn_loaded %}✅ Loaded{% else %}❌ Not Trained{% endif %}
+              </span>
+            </div>
+            <p class="text-gray">Input: 64×128 Mel Spectrogram → 3× Conv2D → GlobalAvgPool → Dense</p>
+          </div>
+
+          <div style="background:var(--panel);border-radius:8px;padding:14px;">
+            <div style="font-weight:700;margin-bottom:4px;">
+              BiLSTM (MFCC Sequence)
+              <span style="float:right;color:{% if lstm_loaded %}var(--green){% else %}var(--red){% endif %}">
+                {% if lstm_loaded %}✅ Loaded{% else %}❌ Not Trained{% endif %}
+              </span>
+            </div>
+            <p class="text-gray">Input: 128×40 MFCC sequence → 3× BiLSTM → Dense</p>
+          </div>
+
+          <div style="background:var(--panel);border-radius:8px;padding:14px;">
+            <div style="font-weight:700;margin-bottom:4px;">Emotion Detector ✅ Active</div>
+            <p class="text-gray">MFCC + Chroma + Spectral → Gradient Boosting → 7 emotions</p>
+          </div>
+
+          <div style="background:var(--panel);border-radius:8px;padding:14px;">
+            <div style="font-weight:700;margin-bottom:4px;">Speaker ID ✅ Active</div>
+            <p class="text-gray">MFCC embeddings + cosine similarity → Speaker matching</p>
+          </div>
+        </div>
+
+        <div class="divider"></div>
+        <p class="text-gray">Train CNN & LSTM:</p>
+        <code style="color:var(--accent);font-size:.85rem;display:block;margin-top:6px;">
+          python train_deep.py --model cnn<br>
+          python train_deep.py --model lstm<br>
+          python train_deep.py --model both
+        </code>
+      </div>
+
+    </div>
+  </div>
+
+</div><!-- /container -->
+
+<script>
+// ── State ────────────────────────────────────────────────────
+let selectedModel = 'ml';
+let selectedFile  = null;
+
+// ── Tab Navigation ───────────────────────────────────────────
+function switchTab(name) {
+  document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('tab-' + name).classList.add('active');
+  event.target.classList.add('active');
+  if (name === 'speakers') loadSpeakers();
+  if (name === 'history')  loadHistory();
+}
+
+// ── File Upload ──────────────────────────────────────────────
+document.getElementById('audioFile').addEventListener('change', function(e) {
+  selectedFile = e.target.files[0];
+  if (selectedFile) {
+    document.getElementById('fileNameDisplay').textContent = '✅ ' + selectedFile.name;
+    document.getElementById('analyseBtn').disabled = false;
+    clearResults();
+  }
+});
+
+document.getElementById('spkFiles').addEventListener('change', function(e) {
+  const names = Array.from(e.target.files).map(f => f.name).join(', ');
+  document.getElementById('spkFileNames').textContent = names || '';
+});
+
+// Drag & drop
+const dz = document.getElementById('dropZone');
+['dragenter','dragover'].forEach(ev => dz.addEventListener(ev, e => {
+  e.preventDefault(); dz.classList.add('drag'); }));
+['dragleave','drop'].forEach(ev => dz.addEventListener(ev, e => {
+  e.preventDefault(); dz.classList.remove('drag'); }));
+dz.addEventListener('drop', e => {
+  const f = e.dataTransfer.files[0];
+  if (f) {
+    selectedFile = f;
+    document.getElementById('fileNameDisplay').textContent = '✅ ' + f.name;
+    document.getElementById('analyseBtn').disabled = false;
+    clearResults();
+  }
+});
+
+// ── Model Select ─────────────────────────────────────────────
+function selectModel(el, model) {
+  if (el.classList.contains('disabled')) return;
+  document.querySelectorAll('.model-tab').forEach(t => t.classList.remove('active'));
+  el.classList.add('active');
+  selectedModel = model;
+}
+
+// ── Analyse ──────────────────────────────────────────────────
+async function analyseAudio() {
+  if (!selectedFile) return;
+
+  document.getElementById('spinner').style.display = 'block';
+  document.getElementById('analyseBtn').disabled = true;
+  document.getElementById('alertBox').style.display = 'none';
+
+  const fd = new FormData();
+  fd.append('file', selectedFile);
+  fd.append('model', selectedModel);
+
+  try {
+    const res  = await fetch('/predict', { method: 'POST', body: fd });
+    const data = await res.json();
+
+    if (data.error) {
+      showAlert(data.error, 'err');
+    } else {
+      renderGender(data);
+      renderEmotion(data);
+      renderSpeaker(data);
+    }
+  } catch(e) {
+    showAlert('Request failed: ' + e.message, 'err');
+  } finally {
+    document.getElementById('spinner').style.display = 'none';
+    document.getElementById('analyseBtn').disabled = false;
+  }
+}
+
+// ── Render Gender ────────────────────────────────────────────
+function renderGender(data) {
+  const gl  = document.getElementById('genderLabel');
+  const gc  = document.getElementById('genderConf');
+  const ga  = document.getElementById('genderAge');
+  const gm  = document.getElementById('modelUsed');
+  const g   = data.gender || '?';
+  gl.textContent = (g === 'FEMALE' ? '♀ ' : '♂ ') + g;
+  gl.className   = 'result-gender ' + (g === 'FEMALE' ? 'female' : 'male');
+  gc.textContent = 'Confidence: ' + (data.confidence || 0) + '%';
+  ga.textContent = data.age_group ? 'Age Group: ' + data.age_group : '';
+  gm.textContent = 'Model: ' + (data.model_used || '');
+}
+
+// ── Render Emotion ───────────────────────────────────────────
+function renderEmotion(data) {
+  document.getElementById('emojiDisplay').textContent = data.emotion_emoji || '🎵';
+  document.getElementById('emotionLabel').textContent = data.emotion || '---';
+  document.getElementById('emotionConf').textContent  =
+    'Confidence: ' + (data.emotion_conf || 0) + '%';
+
+  const probas = data.emotion_probas || {};
+  const bars   = document.getElementById('emotionBars');
+  bars.innerHTML = '';
+  Object.entries(probas).sort((a,b) => b[1]-a[1]).forEach(([emo, pct]) => {
+    bars.innerHTML += `
+      <div class="emo-bar-row">
+        <span>${emo}</span>
+        <div class="emo-bar-bg">
+          <div class="emo-bar-fill" style="width:${pct}%"></div>
+        </div>
+        <span class="emo-pct">${pct.toFixed(1)}%</span>
+      </div>`;
+  });
+}
+
+// ── Render Speaker ───────────────────────────────────────────
+function renderSpeaker(data) {
+  document.getElementById('speakerName').textContent =
+    (data.speaker_matched ? '✅ ' : '❓ ') + (data.speaker || '---');
+  document.getElementById('speakerConf').textContent =
+    data.speaker_matched
+      ? 'Confidence: ' + data.speaker_conf + '%'
+      : 'No match found — register this speaker';
+
+  const scoreEl = document.getElementById('speakerScores');
+  scoreEl.innerHTML = '';
+  const scores = data.speaker_scores || {};
+  Object.entries(scores).sort((a,b) => b[1]-a[1]).forEach(([name, score]) => {
+    scoreEl.innerHTML += `
+      <div class="score-item">
+        <span>${name}</span><span>${score}%</span>
+      </div>`;
+  });
+}
+
+// ── Clear Results ────────────────────────────────────────────
+function clearResults() {
+  ['genderLabel','emotionLabel','speakerName'].forEach(id => {
+    document.getElementById(id).textContent = '---';
+  });
+  document.getElementById('genderConf').textContent   = 'Upload a file to begin';
+  document.getElementById('genderAge').textContent    = '';
+  document.getElementById('modelUsed').textContent    = '';
+  document.getElementById('emotionConf').textContent  = 'Waiting...';
+  document.getElementById('speakerConf').textContent  = 'Register speakers in the Speakers tab';
+  document.getElementById('emojiDisplay').textContent = '🎵';
+  document.getElementById('emotionBars').innerHTML    = '';
+  document.getElementById('speakerScores').innerHTML  = '';
+  document.getElementById('genderLabel').className    = 'result-gender';
+}
+
+// ── Speakers ─────────────────────────────────────────────────
+async function registerSpeaker() {
+  const name  = document.getElementById('spkName').value.trim();
+  const files = document.getElementById('spkFiles').files;
+  if (!name)  { showRegAlert('Enter a speaker name', 'err'); return; }
+  if (!files.length) { showRegAlert('Upload at least one audio file', 'err'); return; }
+
+  const fd = new FormData();
+  fd.append('name', name);
+  Array.from(files).forEach(f => fd.append('files', f));
+
+  const res  = await fetch('/register_speaker', { method: 'POST', body: fd });
+  const data = await res.json();
+  if (data.success) {
+    showRegAlert(data.message, 'ok');
+    loadSpeakers();
+    document.getElementById('spkName').value = '';
+    document.getElementById('spkFileNames').textContent = '';
+  } else {
+    showRegAlert(data.error || 'Registration failed', 'err');
+  }
+}
+
+async function loadSpeakers() {
+  const res  = await fetch('/speakers');
+  const data = await res.json();
+  const el   = document.getElementById('speakersList');
+  if (!data.length) {
+    el.innerHTML = '<p class="text-gray">No speakers registered yet.</p>';
+    return;
+  }
+  el.innerHTML = data.map(s => `
+    <div class="spk-item">
+      <div class="spk-info">
+        <div class="spk-name">👤 ${s.name}</div>
+        <div class="spk-meta">ID: ${s.id} · ${s.n_samples} sample(s) · ${s.registered}</div>
+      </div>
+      <button class="btn-del" onclick="deleteSpeaker('${s.id}','${s.name}')">🗑️ Delete</button>
+    </div>`).join('');
+}
+
+async function deleteSpeaker(id, name) {
+  if (!confirm(`Delete speaker "${name}"?`)) return;
+  await fetch('/speaker/' + id, { method: 'DELETE' });
+  loadSpeakers();
+}
+
+// ── History ──────────────────────────────────────────────────
+async function loadHistory() {
+  const res  = await fetch('/history');
+  const data = await res.json();
+  const body = document.getElementById('historyBody');
+  if (!data.length) {
+    body.innerHTML = '<tr><td colspan="7" style="text-align:center;color:var(--gray);padding:20px;">No predictions yet</td></tr>';
+    return;
+  }
+  body.innerHTML = data.map(h => `
+    <tr>
+      <td>${h.time}</td>
+      <td style="color:var(--white)">${h.filename}</td>
+      <td class="${h.gender==='FEMALE'?'badge-f':'badge-m'}">${h.gender}</td>
+      <td>${h.confidence}%</td>
+      <td>${h.emotion || '---'}</td>
+      <td>${h.speaker || '---'}</td>
+      <td style="color:var(--gray);font-size:.78rem">${h.model}</td>
+    </tr>`).join('');
+}
+
+async function clearHistory() {
+  await fetch('/clear_history', { method: 'POST' });
+  loadHistory();
+}
+
+function exportCSV() {
+  fetch('/history').then(r=>r.json()).then(data => {
+    if (!data.length) { alert('No history to export'); return; }
+    const cols = ['time','filename','gender','confidence','emotion','speaker','model'];
+    const rows = [cols.join(','), ...data.map(r => cols.map(c => r[c]||'').join(','))];
+    const blob = new Blob([rows.join('\n')], {type:'text/csv'});
+    const a    = document.createElement('a');
+    a.href     = URL.createObjectURL(blob);
+    a.download = 'voice_history.csv';
+    a.click();
+  });
+}
+
+// ── Alert Helpers ────────────────────────────────────────────
+function showAlert(msg, type='err') {
+  const el = document.getElementById('alertBox');
+  el.textContent  = msg;
+  el.className    = 'alert alert-' + type;
+  el.style.display = 'block';
+}
+function showRegAlert(msg, type='err') {
+  const el = document.getElementById('regAlert');
+  el.textContent  = msg;
+  el.className    = 'alert alert-' + type;
+  el.style.display = 'block';
+}
+</script>
+</body>
+</html>
